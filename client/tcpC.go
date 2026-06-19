@@ -10,13 +10,7 @@ import (
 
 func main() {
 
-	arguments := os.Args
-	if len(arguments) == 1 {
-		fmt.Println("Please provide host:port.")
-		return
-	}
-
-	CONNECT := arguments[1]
+	CONNECT := "localhost:6379"
 	c, err := net.Dial("tcp", CONNECT)
 	if err != nil {
 		fmt.Println(err)
@@ -38,3 +32,5 @@ func main() {
 		}
 	}
 }
+
+//The client needs to send bulks of strings (a single binary string)

@@ -16,8 +16,8 @@ func main() {
 		fmt.Println("Please provide port number")
 		return
 	}
-
-	PORT := ":" + arguments[1]
+	//default redis port
+	PORT := ":" + "6379"
 	l, err := net.Listen("tcp", PORT)
 	if err != nil {
 		fmt.Println(err)
@@ -49,3 +49,14 @@ func main() {
 	}
 
 }
+
+//The server is going to respond to the clients command and argument
+
+//Read raw bytes coming in
+//Look for \r\n to know where one piece ends and the next begins
+//Reconstruct the meaning — "oh, this is a SET command with key=foo, value=bar"
+
+//\r\n terminator will always separate the binary stream
+
+//The first byte in an RESP-serialized payload always identifies its type.
+//Subsequent bytes constitute the type's contents.
