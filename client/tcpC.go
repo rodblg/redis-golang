@@ -6,25 +6,29 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	"log/slog"
 )
 
 func main() {
 
-	CONNECT := "localhost:6379"
-	c, err := net.Dial("tcp", CONNECT)
+	conn, err := net.Dial("tcp", "localhost:6379")
 	if err != nil {
-		fmt.Println(err)
+		slog.Error("error#connection", "error", err)
 		return
 	}
 
+	reader := bufio.NewReader(os.Stdin)
+	connReader := bufio.NewReader(conn)
+
 	for {
-		reader := bufio.NewReader(os.Stdin)
+
 		fmt.Println(">> ")
 		text, _ := reader.ReadString('\n')
 
-		fmt.Fprintf(c, text+"\n")
+		fmt.Fprintf(conn, text+"\n")
 
-		message, _ := bufio.NewReader(c).ReadString('\n')
+		message, _ := connReader.ReadString('\n')
 		fmt.Print("->: " + message)
 		if strings.TrimSpace(string(text)) == "STOP" {
 			fmt.Println("TCP client exiting")
