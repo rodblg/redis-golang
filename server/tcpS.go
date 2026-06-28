@@ -3,51 +3,70 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"net"
-	"os"
 	"strings"
-	"time"
 )
 
 func main() {
 
-	arguments := os.Args
-	if len(arguments) == 1 {
-		fmt.Println("Please provide port number")
-		return
-	}
+	// arguments := os.Args
+	// if len(arguments) == 1 {
+	// 	fmt.Println("Please provide port number")
+	// 	return
+	// }
 	//default redis port
 	PORT := ":" + "6379"
-	l, err := net.Listen("tcp", PORT)
+	//listen on server socket, network endpoint IP+Port
+	listener, err := net.Listen("tcp", PORT)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer l.Close()
+	defer listener.Close()
 
-	c, err := l.Accept()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	slog.Info("server is listening on port :6379")
 
+	//We implement multiple clients concurrently
 	for {
-		netData, err := bufio.NewReader(c).ReadString('\n')
+
+		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println(err)
+			slog.Error("listener#error", "error", err)
+			continue
+		}
+		slog.Info("accepted#connection", "socket", conn.LocalAddr())
+
+		go handleConnection(conn)
+
+	}
+
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
+	for {
+		//Read and process data from the client
+		//The receiver buffers the received segments
+		msg, err := reader.ReadString('\n')
+		if err != nil {
+			slog.Error("error#buffer", "error", err)
 			return
 		}
-		if strings.TrimSpace(string(netData)) == "STOP" {
+
+		//Write data back to the client
+		if strings.TrimSpace(string(msg)) == "STOP" {
 			fmt.Println("Exiting TCP server!")
 			return
 		}
 
-		fmt.Print("-> ", string(netData))
-		t := time.Now()
-		myTime := t.Format(time.RFC3339) + "\n"
-		c.Write([]byte(myTime))
+		fmt.Print("-> ", string(msg))
+		// t := time.Now()
+		// myTime := t.Format(time.RFC3339) + "\n"
+		conn.Write([]byte("received\n"))
 	}
-
 }
 
 //The server is going to respond to the clients command and argument
