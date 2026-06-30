@@ -2,9 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -69,13 +72,44 @@ func handleConnection(conn net.Conn) {
 	}
 }
 
-//The server is going to respond to the clients command and argument
+// Write a function that reads $\r\n\r\n and returns the string. Read the length first, then read exactly that many bytes.
+// Test with a hardcoded byte slice before wiring it to the socket
 
-//Read raw bytes coming in
-//Look for \r\n to know where one piece ends and the next begins
-//Reconstruct the meaning — "oh, this is a SET command with key=foo, value=bar"
+type BulkString struct {
+	Length  int
+	Message string
+}
 
-//\r\n terminator will always separate the binary stream
+// a bulk string represent a single binary string. RESP encodes as $<length>\r\n<data>\r\n
+func ParseBulkString(input []byte) (*BulkString, error) {
 
-//The first byte in an RESP-serialized payload always identifies its type.
-//Subsequent bytes constitute the type's contents.
+	reader := bufio.NewReader(bytes.NewReader(input))
+
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+
+	line = strings.TrimSuffix(line, "\r\n")
+	line = strings.TrimPrefix(line, "$")
+	fmt.Println(line)
+
+	length, err := strconv.Atoi(line)
+	if err != nil {
+		return nil, err
+	}
+
+	msgBuff := make([]byte, length)
+	_, err = io.ReadFull(reader, msgBuff)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BulkString{Length: length, Message: string(msgBuff)}, nil
+	//Return BulkString
+}
+
+// Clients send commands to redis as RESP arrays
+// *<number-of-elements>\r\n<element-1>...<element-n>
+// EXAMPLE *2\r\n$4\r\nLLEN\r\n$6\r\nmylist\r\n
+func parseArray() {}
