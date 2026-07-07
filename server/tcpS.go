@@ -100,7 +100,7 @@ func handleResp(reader *bufio.Reader) (string, error) {
 
 	switch command {
 	case "PING":
-		resp = "PONG"
+		resp = "+PONG\r\n"
 	}
 	return resp, nil
 
