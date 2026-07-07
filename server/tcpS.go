@@ -2,13 +2,13 @@ package server
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
-	"strings"
 )
 
-func main() {
+func Start() {
 
 	// arguments := os.Args
 	// if len(arguments) == 1 {
@@ -43,28 +43,65 @@ func main() {
 
 }
 
+// func handleConnection(conn net.Conn) {
+// 	defer conn.Close()
+
+// 	reader := bufio.NewReader(conn)
+// 	for {
+// 		//Read and process data from the client
+// 		//The receiver buffers the received segments
+// 		msg, err := reader.ReadString('\n')
+// 		if err != nil {
+// 			slog.Error("error#buffer", "error", err)
+// 			return
+// 		}
+
+// 		//Write data back to the client
+// 		if strings.TrimSpace(string(msg)) == "STOP" {
+// 			fmt.Println("Exiting TCP server!")
+// 			return
+// 		}
+
+//			fmt.Print("-> ", string(msg))
+//			// t := time.Now()
+//			// myTime := t.Format(time.RFC3339) + "\n"
+//			conn.Write([]byte("received\n"))
+//		}
+//	}
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
 	for {
-		//Read and process data from the client
-		//The receiver buffers the received segments
-		msg, err := reader.ReadString('\n')
+		message, err := handleResp(reader)
 		if err != nil {
-			slog.Error("error#buffer", "error", err)
-			return
+			conn.Write([]byte(err.Error()))
 		}
-
-		//Write data back to the client
-		if strings.TrimSpace(string(msg)) == "STOP" {
-			fmt.Println("Exiting TCP server!")
-			return
-		}
-
-		fmt.Print("-> ", string(msg))
 		// t := time.Now()
 		// myTime := t.Format(time.RFC3339) + "\n"
-		conn.Write([]byte("received\n"))
+		conn.Write([]byte(message + "\n"))
 	}
+}
+
+func handleResp(reader *bufio.Reader) (string, error) {
+
+	respArray, err := ParseArray(reader)
+	if err != nil {
+		return "", err
+	}
+
+	var resp string = "NOT RECOGNIZED"
+
+	if respArray.Length == 0 {
+		return resp, errors.New("invalid array")
+	}
+
+	command := respArray.Elements[0].Message
+
+	switch command {
+	case "PING":
+		resp = "PONG"
+	}
+	return resp, nil
+
 }
