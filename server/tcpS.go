@@ -68,7 +68,24 @@ func handleResp(reader *bufio.Reader) (string, error) {
 	switch command {
 	case "PING":
 		return "+PONG", nil
+	case "ECHO":
+		return fmt.Sprintf("+%s", echoMessage(respArray)), nil
 	}
 	return "-ERR unknown command '" + command + "'", nil
 
+}
+
+func echoMessage(array *RespArray) string {
+	var resp string
+	if array.Length > 1 {
+		for i := 1; i < array.Length; i++ {
+			if i == 1 {
+				resp = array.Elements[i].Message
+			} else {
+				resp = fmt.Sprintf("%s %s", resp, array.Elements[i].Message)
+			}
+		}
+	}
+
+	return resp
 }
