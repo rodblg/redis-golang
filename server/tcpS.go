@@ -10,11 +10,6 @@ import (
 
 func Start() {
 
-	// arguments := os.Args
-	// if len(arguments) == 1 {
-	// 	fmt.Println("Please provide port number")
-	// 	return
-	// }
 	//default redis port
 	PORT := ":" + "6379"
 	//listen on server socket, network endpoint IP+Port
@@ -43,31 +38,6 @@ func Start() {
 
 }
 
-// func handleConnection(conn net.Conn) {
-// 	defer conn.Close()
-
-// 	reader := bufio.NewReader(conn)
-// 	for {
-// 		//Read and process data from the client
-// 		//The receiver buffers the received segments
-// 		msg, err := reader.ReadString('\n')
-// 		if err != nil {
-// 			slog.Error("error#buffer", "error", err)
-// 			return
-// 		}
-
-// 		//Write data back to the client
-// 		if strings.TrimSpace(string(msg)) == "STOP" {
-// 			fmt.Println("Exiting TCP server!")
-// 			return
-// 		}
-
-//			fmt.Print("-> ", string(msg))
-//			// t := time.Now()
-//			// myTime := t.Format(time.RFC3339) + "\n"
-//			conn.Write([]byte("received\n"))
-//		}
-//	}
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -75,11 +45,10 @@ func handleConnection(conn net.Conn) {
 	for {
 		message, err := handleResp(reader)
 		if err != nil {
-			conn.Write([]byte(err.Error()))
+			conn.Write([]byte("-ERR " + err.Error() + "\r\n"))
+			continue
 		}
-		// t := time.Now()
-		// myTime := t.Format(time.RFC3339) + "\n"
-		conn.Write([]byte(message + "\n"))
+		conn.Write([]byte(message + "\r\n"))
 	}
 }
 
@@ -90,18 +59,16 @@ func handleResp(reader *bufio.Reader) (string, error) {
 		return "", err
 	}
 
-	var resp string = "NOT RECOGNIZED"
-
 	if respArray.Length == 0 {
-		return resp, errors.New("invalid array")
+		return "", errors.New("invalid array")
 	}
 
 	command := respArray.Elements[0].Message
 
 	switch command {
 	case "PING":
-		resp = "+PONG\r\n"
+		return "+PONG", nil
 	}
-	return resp, nil
+	return "-ERR unknown command '" + command + "'", nil
 
 }
