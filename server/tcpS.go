@@ -6,7 +6,45 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
+
+	"sync"
 )
+
+type Memory struct {
+	mu    sync.RWMutex
+	KVMap map[string]string
+}
+
+func (m *Memory) SetKey(array *RespArray) {
+	//we get the value
+	message := echoMessage(array)
+	keyValue := strings.SplitN(message, " ", 2)
+
+	m.mu.Lock()
+
+	m.KVMap[keyValue[0]] = keyValue[1]
+
+	m.mu.Unlock()
+}
+
+func (m *Memory) GetKey(array *RespArray) (string, bool) {
+	//we get the value
+	message := echoMessage(array)
+	key := strings.SplitN(message, " ", 2)
+
+	m.mu.RLock()
+
+	v, ok := m.KVMap[key[0]]
+
+	m.mu.RUnlock()
+
+	return v, ok
+}
+
+type Server struct {
+	store *Memory
+}
 
 func Start() {
 
@@ -22,6 +60,12 @@ func Start() {
 
 	slog.Info("server is listening on port :6379")
 
+	server := Server{store: &Memory{
+		mu:    sync.RWMutex{},
+		KVMap: make(map[string]string),
+	},
+	}
+
 	//We implement multiple clients concurrently
 	for {
 
@@ -32,18 +76,18 @@ func Start() {
 		}
 		slog.Info("accepted#connection", "socket", conn.LocalAddr())
 
-		go handleConnection(conn)
+		go server.handleConnection(conn)
 
 	}
 
 }
 
-func handleConnection(conn net.Conn) {
+func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
 	for {
-		message, err := handleResp(reader)
+		message, err := s.handleResp(reader)
 		if err != nil {
 			conn.Write([]byte("-ERR " + err.Error() + "\r\n"))
 			continue
@@ -52,7 +96,7 @@ func handleConnection(conn net.Conn) {
 	}
 }
 
-func handleResp(reader *bufio.Reader) (string, error) {
+func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
 
 	respArray, err := ParseArray(reader)
 	if err != nil {
@@ -70,6 +114,15 @@ func handleResp(reader *bufio.Reader) (string, error) {
 		return "+PONG", nil
 	case "ECHO":
 		return fmt.Sprintf("+%s", echoMessage(respArray)), nil
+	case "SET":
+		s.store.SetKey(respArray)
+		return "+OK", nil
+	case "GET":
+		value, ok := s.store.GetKey(respArray)
+		if !ok {
+			return fmt.Sprintf("+%s", "key not found"), nil
+		}
+		return fmt.Sprintf("+%s", value), nil
 	}
 	return "-ERR unknown command '" + command + "'", nil
 
