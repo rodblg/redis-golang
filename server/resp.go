@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"io"
-	"log/slog"
 	"strconv"
 	"strings"
 )
@@ -57,7 +56,6 @@ func ParseArray(reader *bufio.Reader) (*RespArray, error) {
 	if err != nil {
 		return nil, err
 	}
-	slog.Info(line)
 
 	line = strings.TrimPrefix(line, "*")
 	line = strings.TrimSuffix(line, "\r\n")
