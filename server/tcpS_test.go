@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"sync"
 	"testing"
+	"time"
 
 	"bufio"
 )
@@ -68,5 +69,40 @@ func TestHandleRespSet(t *testing.T) {
 
 	if got != "+OK" {
 		t.Errorf("Response = %q, Want = %q", got, "OK")
+	}
+}
+
+func TestKeySetExpiryTimestamp(t *testing.T) {
+	//we want to store keys
+	// we receive a reader with options PX EX
+	setReader := bufio.NewReader(bytes.NewReader([]byte("*5\r\n$3\r\nSET\r\n$4\r\nName\r\n$4\r\nJohn\r\n$2\r\nEX\r\n$1\r\n5\r\n")))
+	s := Server{
+		store: &Memory{
+			mu:       sync.RWMutex{},
+			KVMap:    make(map[string]string),
+			Expirity: make(map[string]time.Time),
+		},
+	}
+
+	got, err := s.handleResp(setReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got != "+OK" {
+		t.Errorf("Response = %q, Want = %q", got, "OK")
+	}
+
+	getReader := bufio.NewReader(bytes.NewReader([]byte("*2\r\n$3\r\nGET\r\n$4\r\nName\r\n")))
+
+	// esperamos n tiempo
+	time.Sleep(5 * time.Second)
+	// hacemos un get y visualizamos que se borra
+	got, err = s.handleResp(getReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "-1" {
+		t.Errorf("Response = %q, Want = %q", got, "-1")
 	}
 }

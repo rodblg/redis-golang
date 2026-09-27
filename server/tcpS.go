@@ -6,40 +6,82 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"strings"
+	"time"
 
 	"sync"
 )
 
 type Memory struct {
-	mu    sync.RWMutex
-	KVMap map[string]string
+	mu       sync.RWMutex
+	KVMap    map[string]string
+	Expirity map[string]time.Time
 }
 
-func (m *Memory) SetKey(array *RespArray) {
+func (m *Memory) SetKey(array *RespArray) error {
 	//we get the value
-	message := echoMessage(array)
-	keyValue := strings.SplitN(message, " ", 2)
+	//message := echoMessage(array)
+
+	if array.Length < 3 {
+		return errors.New("wrong number of arguments for 'set' command")
+	}
+	var expEn time.Time
+	for i := 3; i < array.Length; i++ {
+		opt := strings.ToUpper(array.Elements[i].Message)
+		if (opt == "EX" || opt == "PX") && (i+1 < array.Length) {
+			duration, err := strconv.Atoi(array.Elements[i+1].Message)
+			if err != nil {
+				return err
+			}
+			var value time.Duration
+			switch opt {
+			case "EX":
+				value = time.Second
+			case "PX":
+				value = time.Millisecond
+			}
+
+			expEn = time.Now().Add(time.Duration(duration) * value)
+
+		}
+
+	}
+
+	key, value := array.Elements[1].Message, array.Elements[2].Message
 
 	m.mu.Lock()
+	defer m.mu.Unlock()
 
-	m.KVMap[keyValue[0]] = keyValue[1]
+	m.KVMap[key] = value
 
-	m.mu.Unlock()
+	if !expEn.IsZero() {
+		m.Expirity[key] = expEn
+	}
+
+	return nil
 }
 
 func (m *Memory) GetKey(array *RespArray) (string, bool) {
 	//we get the value
-	message := echoMessage(array)
-	key := strings.SplitN(message, " ", 2)
+	//message := echoMessage(array)
 
-	m.mu.RLock()
+	//check if there is a expiration
 
-	v, ok := m.KVMap[key[0]]
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	key := array.Elements[1].Message
+	expVar, exists := m.Expirity[key]
 
-	m.mu.RUnlock()
+	if exists && time.Now().After(expVar) {
+		delete(m.KVMap, key)
+		delete(m.Expirity, key)
+		return "-1", true
+	}
 
-	return v, ok
+	v, ok := m.KVMap[key]
+
+	return fmt.Sprintf("+%s", v), ok
 }
 
 type Server struct {
@@ -115,14 +157,17 @@ func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
 	case "ECHO":
 		return fmt.Sprintf("+%s", echoMessage(respArray)), nil
 	case "SET":
-		s.store.SetKey(respArray)
+		err := s.store.SetKey(respArray)
+		if err != nil {
+			return "-ERR " + err.Error(), nil
+		}
 		return "+OK", nil
 	case "GET":
 		value, ok := s.store.GetKey(respArray)
 		if !ok {
 			return fmt.Sprintf("+%s", "key not found"), nil
 		}
-		return fmt.Sprintf("+%s", value), nil
+		return fmt.Sprintf("%s", value), nil
 	}
 	return "-ERR unknown command '" + command + "'", nil
 
