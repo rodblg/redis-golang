@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -105,4 +106,40 @@ func TestKeySetExpiryTimestamp(t *testing.T) {
 	if got != "-1" {
 		t.Errorf("Response = %q, Want = %q", got, "-1")
 	}
+}
+
+func TestTTLKeyExpirity(t *testing.T) {
+
+	s := Server{
+		store: &Memory{
+			mu:       sync.RWMutex{},
+			KVMap:    make(map[string]string),
+			Expirity: make(map[string]time.Time),
+		},
+	}
+
+	setReader := bufio.NewReader(bytes.NewReader([]byte("*5\r\n$3\r\nSET\r\n$4\r\nName\r\n$4\r\nJohn\r\n$2\r\nEX\r\n$1\r\n5\r\n")))
+	//the key is added
+	got, err := s.handleResp(setReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got != "+OK" {
+		t.Errorf("Response = %q, Want = %q", got, "OK")
+	}
+	time.Sleep(3 * time.Second)
+
+	ttlReader := bufio.NewReader(bytes.NewReader([]byte("*2\r\n$3\r\nTTL\r\n$4\r\nName\r\n")))
+
+	got, err = s.handleResp(ttlReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ttl, _ := strconv.Atoi(got)
+	if ttl < 1 || ttl > 2 {
+		t.Errorf("TTL = %d, want between 1 and 2", ttl)
+	}
+
 }
