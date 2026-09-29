@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -82,6 +83,37 @@ func (m *Memory) GetKey(array *RespArray) (string, bool) {
 	v, ok := m.KVMap[key]
 
 	return fmt.Sprintf("+%s", v), ok
+}
+
+func (m *Memory) GetTTL(array *RespArray) string {
+
+	if array.Length < 2 {
+		return "-ERR invalid command"
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	key := array.Elements[1].Message
+	_, ok := m.KVMap[key]
+	if !ok {
+		return "-2"
+	}
+	expIn, hasExp := m.Expirity[key]
+	if ok && !hasExp {
+		return "-1"
+	}
+
+	if hasExp && time.Now().After(expIn) {
+		delete(m.KVMap, key)
+		delete(m.Expirity, key)
+		return "-2"
+	}
+
+	//convert time to expire in left seconds
+	leftS := int(math.Round(time.Until(expIn).Seconds()))
+
+	return fmt.Sprintf("%d", leftS)
+
 }
 
 type Server struct {
@@ -168,6 +200,10 @@ func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
 			return fmt.Sprintf("+%s", "key not found"), nil
 		}
 		return fmt.Sprintf("%s", value), nil
+
+	case "TTL":
+		s := s.store.GetTTL(respArray)
+		return s, nil
 	}
 	return "-ERR unknown command '" + command + "'", nil
 
