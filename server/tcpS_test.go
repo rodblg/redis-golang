@@ -143,3 +143,37 @@ func TestTTLKeyExpirity(t *testing.T) {
 	}
 
 }
+
+func TestSetExpire(t *testing.T) {
+
+	s := Server{
+		store: &Memory{
+			mu:       sync.RWMutex{},
+			KVMap:    make(map[string]string),
+			Expirity: make(map[string]time.Time),
+		},
+	}
+
+	setReader := bufio.NewReader(bytes.NewReader([]byte("*3\r\n$3\r\nSET\r\n$4\r\nName\r\n$4\r\nJohn\r\n")))
+
+	got, err := s.handleResp(setReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got != "+OK" {
+		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	}
+
+	expireReader := bufio.NewReader(bytes.NewReader([]byte("*3\r\n$6\r\nEXPIRE\r\n$4\r\nName\r\n$1\r\n4\r\n")))
+
+	got, err = s.handleResp(expireReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got != "1" {
+		t.Errorf("Response = %q, Want = %q", got, "1")
+	}
+
+}
