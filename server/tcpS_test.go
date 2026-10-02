@@ -176,4 +176,14 @@ func TestSetExpire(t *testing.T) {
 		t.Errorf("Response = %q, Want = %q", got, "1")
 	}
 
+	ttlReader := bufio.NewReader(bytes.NewReader([]byte("*2\r\n$3\r\nTTL\r\n$4\r\nName\r\n")))
+	got, err = s.handleResp(ttlReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ttl, _ := strconv.Atoi(got)
+	if ttl < 3 || ttl > 4 {
+		t.Errorf("TTL = %d, want between 3 and 4", ttl)
+	}
 }

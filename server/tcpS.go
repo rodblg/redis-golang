@@ -116,6 +116,38 @@ func (m *Memory) GetTTL(array *RespArray) string {
 
 }
 
+func (m *Memory) SetExpire(array *RespArray) (string, error) {
+
+	//I need to know if the key exists
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	key := array.Elements[1].Message
+	secondStr := array.Elements[2].Message
+	_, ok := m.KVMap[key]
+	if !ok {
+		return "0", nil
+	}
+
+	//Has Expire
+	expIn, hasExp := m.Expirity[key]
+	if hasExp && time.Now().After(expIn) {
+		delete(m.KVMap, key)
+		delete(m.Expirity, key)
+		return "", nil
+	}
+
+	seconds, err := strconv.Atoi(secondStr)
+	if err != nil {
+		return "0", err
+	}
+	//Set expire
+	expEn := time.Now().Add(time.Duration(seconds) * time.Second)
+
+	m.Expirity[key] = expEn
+
+	return "1", nil
+}
+
 type Server struct {
 	store *Memory
 }
@@ -203,6 +235,12 @@ func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
 
 	case "TTL":
 		s := s.store.GetTTL(respArray)
+		return s, nil
+	case "EXPIRE":
+		s, err := s.store.SetExpire(respArray)
+		if err != nil {
+			return "-ERR " + err.Error(), nil
+		}
 		return s, nil
 	}
 	return "-ERR unknown command '" + command + "'", nil
