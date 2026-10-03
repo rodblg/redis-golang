@@ -148,6 +148,25 @@ func (m *Memory) SetExpire(array *RespArray) (string, error) {
 	return "1", nil
 }
 
+func (m *Memory) ExpireSweep() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	//get 20 elements that have expire
+	var nElements int = 0
+	for key, value := range m.Expirity {
+		//evaluate expire 	and eliminate if they have expire
+		if time.Now().After(value) {
+			delete(m.Expirity, key)
+			delete(m.KVMap, key)
+		}
+		if nElements >= 20 {
+			break
+		}
+		nElements++
+	}
+
+}
+
 type Server struct {
 	store *Memory
 }
@@ -167,9 +186,21 @@ func Start() {
 	slog.Info("server is listening on port :6379")
 
 	server := Server{store: &Memory{
-		mu:    sync.RWMutex{},
-		KVMap: make(map[string]string),
+		mu:       sync.RWMutex{},
+		KVMap:    make(map[string]string),
+		Expirity: make(map[string]time.Time),
 	},
+	}
+
+	//define ticker for active expire
+	timeDuration := time.Duration(time.Millisecond * 200)
+	ticker := time.NewTicker(timeDuration)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			go server.store.ExpireSweep()
+		}
 	}
 
 	//We implement multiple clients concurrently
