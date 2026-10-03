@@ -187,3 +187,37 @@ func TestSetExpire(t *testing.T) {
 		t.Errorf("TTL = %d, want between 3 and 4", ttl)
 	}
 }
+
+func TestExpireSweep(t *testing.T) {
+
+	s := Server{
+		store: &Memory{
+			mu:       sync.RWMutex{},
+			KVMap:    make(map[string]string),
+			Expirity: make(map[string]time.Time),
+		},
+	}
+
+	setReader := bufio.NewReader(bytes.NewReader([]byte("*5\r\n$3\r\nSET\r\n$4\r\nName\r\n$4\r\nJohn\r\n$2\r\nPX\r\n$2\r\n50\r\n")))
+
+	got, err := s.handleResp(setReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got != "+OK" {
+		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	}
+
+	time.Sleep(time.Millisecond * 100)
+	s.store.ExpireSweep()
+
+	_, exist := s.store.KVMap["Name"]
+	if exist {
+		t.Errorf("the key should have been deleted by the expire sweep")
+	}
+}
+
+// func TestHandleConnectionTicker(t *testing.T){
+
+// }

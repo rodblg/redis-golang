@@ -260,7 +260,7 @@ func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
 	case "GET":
 		value, ok := s.store.GetKey(respArray)
 		if !ok {
-			return fmt.Sprintf("+%s", "key not found"), nil
+			return "-1", nil
 		}
 		return fmt.Sprintf("%s", value), nil
 
