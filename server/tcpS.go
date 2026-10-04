@@ -193,15 +193,14 @@ func Start() {
 	}
 
 	//define ticker for active expire
-	timeDuration := time.Duration(time.Millisecond * 200)
-	ticker := time.NewTicker(timeDuration)
+	ticker := time.NewTicker(time.Millisecond * 200)
 	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			go server.store.ExpireSweep()
+
+	go func() {
+		for range ticker.C {
+			server.store.ExpireSweep()
 		}
-	}
+	}()
 
 	//We implement multiple clients concurrently
 	for {
@@ -260,7 +259,7 @@ func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
 	case "GET":
 		value, ok := s.store.GetKey(respArray)
 		if !ok {
-			return "-1", nil
+			return "$-1\r\n", nil
 		}
 		return fmt.Sprintf("%s", value), nil
 
