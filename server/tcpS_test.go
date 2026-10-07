@@ -218,6 +218,34 @@ func TestExpireSweep(t *testing.T) {
 	}
 }
 
+func TestConcurrentSetGetStress(t *testing.T) {
+	s := Server{
+		store: &Memory{
+			mu:       sync.RWMutex{},
+			KVMap:    make(map[string]string),
+			Expirity: make(map[string]time.Time),
+		},
+	}
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			setReader := bufio.NewReader(bytes.NewReader([]byte("*3\r\n$3\r\nSET\r\n$4\r\nName\r\n$4\r\nJohn\r\n")))
+			s.handleResp(setReader)
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			getReader := bufio.NewReader(bytes.NewReader([]byte("*2\r\n$3\r\nGET\r\n$4\r\nName\r\n")))
+			s.handleResp(getReader)
+		}()
+	}
+	wg.Wait()
+}
+
 // func TestHandleConnectionTicker(t *testing.T){
 
 // }
