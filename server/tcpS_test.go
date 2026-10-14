@@ -246,6 +246,46 @@ func TestConcurrentSetGetStress(t *testing.T) {
 	wg.Wait()
 }
 
-// func TestHandleConnectionTicker(t *testing.T){
+func TestDeleteKey(t *testing.T) {
 
-// }
+	s := Server{
+		store: &Memory{
+			mu:       sync.RWMutex{},
+			KVMap:    make(map[string]string),
+			Expirity: make(map[string]time.Time),
+		},
+	}
+
+	setReader1 := bufio.NewReader(bytes.NewReader([]byte("*5\r\n$3\r\nSET\r\n$4\r\nkey1\r\n$4\r\nfooo\r\n$2\r\nEX\r\n$1\r\n2\r\n")))
+
+	got, err := s.handleResp(setReader1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got != "+OK" {
+		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	}
+
+	setReader2 := bufio.NewReader(bytes.NewReader([]byte("*3\r\n$3\r\nSET\r\n$4\r\nkey2\r\n$4\r\nfooo\r\n")))
+
+	got, err = s.handleResp(setReader2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got != "+OK" {
+		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	}
+
+	delReader := bufio.NewReader(bytes.NewReader([]byte("*4\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey3\r\n")))
+
+	got, err = s.handleResp(delReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got != "2" {
+		t.Errorf("Response = %q, Want = %q", got, "2")
+	}
+}
