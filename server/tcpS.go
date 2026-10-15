@@ -167,6 +167,62 @@ func (m *Memory) ExpireSweep() {
 
 }
 
+func (m *Memory) DeleteKey(array *RespArray) string {
+
+	if array.Length < 2 {
+		return "0"
+	}
+
+	var delKeys int = 0
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, key := range array.Elements[1:] {
+		_, ok := m.KVMap[key.Message]
+		if ok {
+			delete(m.KVMap, key.Message)
+			delete(m.Expirity, key.Message)
+
+			delKeys += 1
+		}
+	}
+
+	delKeysStr := strconv.Itoa(delKeys)
+
+	return delKeysStr
+
+}
+
+func (m *Memory) ExistsKey(array *RespArray) string {
+
+	if array.Length < 2 {
+		return "0"
+	}
+	var exist int
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, key := range array.Elements[1:] {
+
+		if _, ok := m.KVMap[key.Message]; ok {
+
+			if expIn, okExp := m.Expirity[key.Message]; okExp {
+				if time.Now().After(expIn) {
+					continue
+				}
+			}
+			exist += 1
+
+		}
+
+	}
+
+	existStr := strconv.Itoa(exist)
+
+	return existStr
+
+}
+
 type Server struct {
 	store *Memory
 }
@@ -272,6 +328,14 @@ func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
 			return "-ERR " + err.Error(), nil
 		}
 		return s, nil
+	case "DEL":
+		deleted := s.store.DeleteKey(respArray)
+		return deleted, nil
+	case "EXISTS":
+		exist := s.store.ExistsKey(respArray)
+
+		return exist, nil
+
 	}
 	return "-ERR unknown command '" + command + "'", nil
 

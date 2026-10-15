@@ -289,3 +289,47 @@ func TestDeleteKey(t *testing.T) {
 		t.Errorf("Response = %q, Want = %q", got, "2")
 	}
 }
+
+func TestExistsKey(t *testing.T) {
+
+	s := Server{
+		store: &Memory{
+			mu:       sync.RWMutex{},
+			KVMap:    make(map[string]string),
+			Expirity: make(map[string]time.Time),
+		},
+	}
+
+	setReader1 := bufio.NewReader(bytes.NewReader([]byte("*5\r\n$3\r\nSET\r\n$4\r\nkey1\r\n$4\r\nfooo\r\n$2\r\nPX\r\n$2\r\n50\r\n")))
+
+	got, err := s.handleResp(setReader1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "+OK" {
+		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	}
+
+	time.Sleep(1 * time.Second)
+
+	setReader2 := bufio.NewReader(bytes.NewReader([]byte("*3\r\n$3\r\nSET\r\n$4\r\nkey2\r\n$4\r\nfooo\r\n")))
+
+	got, err = s.handleResp(setReader2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "+OK" {
+		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	}
+
+	exReader := bufio.NewReader(bytes.NewReader([]byte("*4\r\n$6\r\nEXISTS\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey5\r\n")))
+
+	got, err = s.handleResp(exReader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "1" {
+		t.Errorf("Response = %q, Want = %q", got, "1")
+	}
+
+}
