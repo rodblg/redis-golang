@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -84,4 +85,21 @@ func ParseArray(reader *bufio.Reader) (*RespArray, error) {
 		Elements: elements,
 	}, nil
 
+}
+
+func EncodeString(i string) []byte {
+
+	strLen := len(i)
+
+	if strLen == 0 {
+		return []byte("$0\r\n\r\n")
+	}
+
+	encStr := fmt.Sprintf("$%d\r\n%s\r\n", strLen, i)
+
+	return []byte(encStr)
+}
+
+func EncodeNull() []byte {
+	return []byte("$-1\r\n")
 }

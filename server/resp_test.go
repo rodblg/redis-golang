@@ -51,3 +51,29 @@ func TestParseArray(t *testing.T) {
 	// }
 
 }
+
+func TestEncodeString(t *testing.T) {
+
+	//we get key from GET foo, where foo has a value of test
+
+	respString := EncodeString("test")
+
+	eq := bytes.Equal(respString, []byte("$4\r\ntest\r\n"))
+
+	if !eq {
+		t.Errorf("Invalid encoding = %q, Want = %q", respString, []byte("$4\r\ntest\r\n"))
+	}
+
+}
+
+func TestNullEncode(t *testing.T) {
+
+	respString := EncodeNull()
+
+	eq := bytes.Equal(respString, []byte("$-1\r\n"))
+
+	if !eq {
+		t.Errorf("Invalid encoding = %q, Want = %q", respString, []byte("$-1\r\n"))
+	}
+
+}

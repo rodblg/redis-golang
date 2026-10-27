@@ -315,9 +315,9 @@ func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
 	case "GET":
 		value, ok := s.store.GetKey(respArray)
 		if !ok {
-			return "$-1\r\n", nil
+			return string(EncodeNull()), nil
 		}
-		return fmt.Sprintf("%s", value), nil
+		return string(EncodeString(value)), nil
 
 	case "TTL":
 		s := s.store.GetTTL(respArray)
