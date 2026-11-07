@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -26,8 +25,31 @@ func TestHandleRespInput(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+PONG" {
-		t.Errorf("Message = %q, Want = %q", got, "PONG")
+	eq := bytes.Equal(got, []byte("+PONG\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+PONG\r\n")
+	}
+
+}
+
+func TestHandleRespEncoding(t *testing.T) {
+
+	s := Server{
+		store: &Memory{
+			mu:    sync.RWMutex{},
+			KVMap: make(map[string]string),
+		},
+	}
+
+	reader := bufio.NewReader(bytes.NewReader([]byte("*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n")))
+
+	got, err := s.handleResp(reader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !bytes.Equal(got, []byte("$-1\r\n")) {
+		t.Errorf("Invalid encoding = %q, Want = %q", got, []byte("$-1\r\n"))
 	}
 
 }
@@ -47,8 +69,9 @@ func TestHandleRespEcho(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+Hello World" {
-		t.Errorf("Message = %q, Want = %q", got, "Hello World")
+	eq := bytes.Equal(got, []byte("+Hello World\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+Hello World\r\n")
 	}
 
 }
@@ -68,8 +91,9 @@ func TestHandleRespSet(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "OK")
+	eq := bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
 }
 
@@ -90,8 +114,9 @@ func TestKeySetExpiryTimestamp(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "OK")
+	eq := bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
 
 	getReader := bufio.NewReader(bytes.NewReader([]byte("*2\r\n$3\r\nGET\r\n$4\r\nName\r\n")))
@@ -103,8 +128,10 @@ func TestKeySetExpiryTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != "-1" {
-		t.Errorf("Response = %q, Want = %q", got, "-1")
+
+	eq = bytes.Equal(got, []byte("$-1\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "$-1\r\n")
 	}
 }
 
@@ -125,9 +152,11 @@ func TestTTLKeyExpirity(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "OK")
+	eq := bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
+
 	time.Sleep(3 * time.Second)
 
 	ttlReader := bufio.NewReader(bytes.NewReader([]byte("*2\r\n$3\r\nTTL\r\n$4\r\nName\r\n")))
@@ -137,9 +166,9 @@ func TestTTLKeyExpirity(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	ttl, _ := strconv.Atoi(got)
-	if ttl < 1 || ttl > 2 {
-		t.Errorf("TTL = %d, want between 1 and 2", ttl)
+	if !(bytes.Equal(got, []byte(":1\r\n")) || bytes.Equal(got, []byte(":2\r\n"))) {
+		t.Errorf("TTL = %d, want between :1\r\n and :2\r\n", got)
+
 	}
 
 }
@@ -161,8 +190,9 @@ func TestSetExpire(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	eq := bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
 
 	expireReader := bufio.NewReader(bytes.NewReader([]byte("*3\r\n$6\r\nEXPIRE\r\n$4\r\nName\r\n$1\r\n4\r\n")))
@@ -172,8 +202,9 @@ func TestSetExpire(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "1" {
-		t.Errorf("Response = %q, Want = %q", got, "1")
+	eq = bytes.Equal(got, []byte(":1\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, ":1\r\n")
 	}
 
 	ttlReader := bufio.NewReader(bytes.NewReader([]byte("*2\r\n$3\r\nTTL\r\n$4\r\nName\r\n")))
@@ -182,9 +213,8 @@ func TestSetExpire(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	ttl, _ := strconv.Atoi(got)
-	if ttl < 3 || ttl > 4 {
-		t.Errorf("TTL = %d, want between 3 and 4", ttl)
+	if !(bytes.Equal(got, []byte(":3\r\n")) || bytes.Equal(got, []byte(":4\r\n"))) {
+		t.Errorf("TTL = %d, want between :3\r\n and :4\r\n", got)
 	}
 }
 
@@ -205,8 +235,9 @@ func TestExpireSweep(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	eq := bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
 
 	time.Sleep(time.Millisecond * 100)
@@ -263,8 +294,9 @@ func TestDeleteKey(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	eq := bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
 
 	setReader2 := bufio.NewReader(bytes.NewReader([]byte("*3\r\n$3\r\nSET\r\n$4\r\nkey2\r\n$4\r\nfooo\r\n")))
@@ -274,8 +306,9 @@ func TestDeleteKey(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	eq = bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
 
 	delReader := bufio.NewReader(bytes.NewReader([]byte("*4\r\n$3\r\nDEL\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey3\r\n")))
@@ -285,8 +318,9 @@ func TestDeleteKey(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "2" {
-		t.Errorf("Response = %q, Want = %q", got, "2")
+	eq = bytes.Equal(got, []byte(":2\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, ":2\r\n")
 	}
 }
 
@@ -306,8 +340,10 @@ func TestExistsKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "+OK")
+
+	eq := bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
 
 	time.Sleep(1 * time.Second)
@@ -318,8 +354,9 @@ func TestExistsKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != "+OK" {
-		t.Errorf("Response = %q, Want = %q", got, "+OK")
+	eq = bytes.Equal(got, []byte("+OK\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, "+OK\r\n")
 	}
 
 	exReader := bufio.NewReader(bytes.NewReader([]byte("*4\r\n$6\r\nEXISTS\r\n$4\r\nkey1\r\n$4\r\nkey2\r\n$4\r\nkey5\r\n")))
@@ -328,8 +365,10 @@ func TestExistsKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != "1" {
-		t.Errorf("Response = %q, Want = %q", got, "1")
+
+	eq = bytes.Equal(got, []byte(":1\r\n"))
+	if !eq {
+		t.Errorf("Response = %q, Want = %q", got, ":1\r\n")
 	}
 
 }

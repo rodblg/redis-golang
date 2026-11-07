@@ -77,12 +77,12 @@ func (m *Memory) GetKey(array *RespArray) (string, bool) {
 	if exists && time.Now().After(expVar) {
 		delete(m.KVMap, key)
 		delete(m.Expirity, key)
-		return "-1", true
+		return "", false
 	}
 
 	v, ok := m.KVMap[key]
 
-	return fmt.Sprintf("+%s", v), ok
+	return v, ok
 }
 
 func (m *Memory) GetTTL(array *RespArray) string {
@@ -281,63 +281,63 @@ func (s *Server) handleConnection(conn net.Conn) {
 	for {
 		message, err := s.handleResp(reader)
 		if err != nil {
-			conn.Write([]byte("-ERR " + err.Error() + "\r\n"))
+			conn.Write(EncodeError(err.Error()))
 			continue
 		}
-		conn.Write([]byte(message + "\r\n"))
+		conn.Write(message)
 	}
 }
 
-func (s *Server) handleResp(reader *bufio.Reader) (string, error) {
+func (s *Server) handleResp(reader *bufio.Reader) ([]byte, error) {
 
 	respArray, err := ParseArray(reader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if respArray.Length == 0 {
-		return "", errors.New("invalid array")
+		return nil, errors.New("invalid array")
 	}
 
 	command := respArray.Elements[0].Message
 
 	switch command {
 	case "PING":
-		return "+PONG", nil
+		return EncodeSimpleString("PONG"), nil
 	case "ECHO":
-		return fmt.Sprintf("+%s", echoMessage(respArray)), nil
+		return EncodeSimpleString(echoMessage(respArray)), nil
 	case "SET":
 		err := s.store.SetKey(respArray)
 		if err != nil {
-			return "-ERR " + err.Error(), nil
+			return nil, err
 		}
-		return "+OK", nil
+		return EncodeSimpleString("OK"), nil
 	case "GET":
 		value, ok := s.store.GetKey(respArray)
 		if !ok {
-			return string(EncodeNull()), nil
+			return EncodeNull(), nil
 		}
-		return string(EncodeString(value)), nil
+		return EncodeString(value), nil
 
 	case "TTL":
 		s := s.store.GetTTL(respArray)
-		return s, nil
+		return EncodeInteger(s), nil
 	case "EXPIRE":
 		s, err := s.store.SetExpire(respArray)
 		if err != nil {
-			return "-ERR " + err.Error(), nil
+			return nil, err
 		}
-		return s, nil
+		return EncodeInteger(s), nil
 	case "DEL":
 		deleted := s.store.DeleteKey(respArray)
-		return deleted, nil
+		return EncodeInteger(deleted), nil
 	case "EXISTS":
 		exist := s.store.ExistsKey(respArray)
 
-		return exist, nil
+		return EncodeInteger(exist), nil
 
 	}
-	return "-ERR unknown command '" + command + "'", nil
+	return nil, err
 
 }
 

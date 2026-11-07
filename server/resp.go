@@ -87,6 +87,7 @@ func ParseArray(reader *bufio.Reader) (*RespArray, error) {
 
 }
 
+// bulk strings
 func EncodeString(i string) []byte {
 
 	strLen := len(i)
@@ -100,6 +101,39 @@ func EncodeString(i string) []byte {
 	return []byte(encStr)
 }
 
+// simple string
+func EncodeSimpleString(i string) []byte {
+
+	if len(i) == 0 {
+		return []byte("")
+	}
+
+	encStr := fmt.Sprintf("+%s\r\n", i)
+
+	return []byte(encStr)
+}
+
+func EncodeInteger(i string) []byte {
+
+	if len(i) == 0 {
+		return []byte(":0\r\n")
+	}
+	notation := ":"
+	if i[0] == '-' {
+		notation = ""
+	}
+
+	encStr := fmt.Sprintf("%s%s\r\n", notation, i)
+	return []byte(encStr)
+}
+
 func EncodeNull() []byte {
 	return []byte("$-1\r\n")
+}
+
+func EncodeError(e string) []byte {
+
+	eStr := fmt.Sprintf("-ERR %s\r\n", e)
+
+	return []byte(eStr)
 }

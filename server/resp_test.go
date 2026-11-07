@@ -66,6 +66,26 @@ func TestEncodeString(t *testing.T) {
 
 }
 
+func TestEncodeSimpleString(t *testing.T) {
+
+	respString := EncodeSimpleString("OK")
+
+	eq := bytes.Equal(respString, []byte("+OK\r\n"))
+
+	if !eq {
+		t.Errorf("Invalid encoding = %q, Want = %q", respString, []byte("+OK\r\n"))
+	}
+}
+
+func TestEncodeInteger(t *testing.T) {
+	respString := EncodeInteger("-1")
+
+	eq := bytes.Equal(respString, []byte("-1\r\n"))
+	if !eq {
+		t.Errorf("Invalid encoding = %q, Want = %q", respString, []byte("-1\r\n"))
+	}
+}
+
 func TestNullEncode(t *testing.T) {
 
 	respString := EncodeNull()
@@ -76,4 +96,14 @@ func TestNullEncode(t *testing.T) {
 		t.Errorf("Invalid encoding = %q, Want = %q", respString, []byte("$-1\r\n"))
 	}
 
+}
+
+func TestErrEncode(t *testing.T) {
+	respString := EncodeError("unknown error")
+
+	eq := bytes.Equal(respString, []byte("-ERR unknown error\r\n"))
+
+	if !eq {
+		t.Errorf("Invalid encoding = %q, Want = %q", respString, []byte("-ERR unknown error\r\n"))
+	}
 }
