@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"flag"
 	"sync"
 )
 
@@ -229,8 +230,10 @@ type Server struct {
 
 func Start() {
 
+	var port = flag.String("port", "6379", "tcp port flag")
+	flag.Parse()
 	//default redis port
-	PORT := ":" + "6379"
+	PORT := ":" + *port
 	//listen on server socket, network endpoint IP+Port
 	listener, err := net.Listen("tcp", PORT)
 	if err != nil {
@@ -239,7 +242,7 @@ func Start() {
 	}
 	defer listener.Close()
 
-	slog.Info("server is listening on port :6379")
+	slog.Info("server is listening on", "port", *port)
 
 	server := Server{store: &Memory{
 		mu:       sync.RWMutex{},
