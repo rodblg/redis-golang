@@ -343,10 +343,9 @@ func (s *Server) handleResp(reader *bufio.Reader) ([]byte, error) {
 		exist := s.store.ExistsKey(respArray)
 
 		return EncodeInteger(exist), nil
-
+	default:
+		return nil, errors.New("unknown command")
 	}
-	return nil, err
-
 }
 
 func echoMessage(array *RespArray) string {
