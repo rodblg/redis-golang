@@ -251,6 +251,11 @@ func Start() {
 	},
 	}
 
+	//define concurrent http communication between api nodes
+	go func() {
+		Health()
+	}()
+
 	//define ticker for active expire
 	ticker := time.NewTicker(time.Millisecond * 200)
 	defer ticker.Stop()
